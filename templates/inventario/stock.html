@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+
+{% block title %}Control de Stock{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="fas fa-warehouse"></i> Control de Stock</h2>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalAjusteStock">
+        <i class="fas fa-edit"></i> Ajustar Stock
+    </button>
+</div>
+
+<!-- Alertas de stock -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-warning">
+                <h5><i class="fas fa-exclamation-triangle"></i> Alertas de Stock</h5>
+            </div>
+            <div class="card-body">
+                {% if alertas %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Tipo</th>
+                                <th>Mensaje</th>
+                                <th>Fecha</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for alerta in alertas %}
+                            <tr>
+                                <td>{{ alerta.producto.nombre }}</td>
+                                <td>
+                                    <span class="badge {% if alerta.tipo == 'MINIMO' %}bg-danger{% elif alerta.tipo == 'MAXIMO' %}bg-warning{% else %}bg-info{% endif %}">
+                                        {{ alerta.tipo }}
+                                    </span>
+                                </td>
+                                <td>{{ alerta.mensaje }}</td>
+                                <td>{{ format_date(alerta.fecha_generacion) }}</td>
+                                <td>
+                                    <span class="badge {% if alerta.estado == 'PENDIENTE' %}bg-danger{% elif alerta.estado == 'LEIDA' %}bg-warning{% else %}bg-success{% endif %}">
+                                        {{ alerta.estado }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if alerta.estado == 'PENDIENTE' %}
+                                    <button class="btn btn-sm btn-success" onclick="marcarLeida({{ alerta.id_alerta }})">
+                                        <i class="fas fa-check"></i> Leída
+                                    </button>
+                                    <button class="btn btn-sm btn-primary" onclick="atenderAlerta({{ alerta.id_alerta }})">
+                                        <i class="fas fa-tasks"></i> Atender
+                                    </button>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted text-center">No hay alertas pendientes</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de productos con stock -->
+<div class="card">
+    <div class="card-header">
+        <h5><i class="fas fa-list"></i> Inventario Actual</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table id="stockTable" class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Producto</th>
+                        <th>Marca</th>
+                        <th>Categoría</th>
+                        <th>Stock</th>
+                        <th>Mínimo</th>
+                        <th>Máximo</th>
+                        <th>Estado</th>
+                        <th>Precio Venta</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for producto in productos %}
+                    <tr>
+                        <td>{{ producto.codigo_barras or '-' }}</td>
+                        <td>{{ producto.nombre }}</td>
+                        <td>{{ producto.marca_ref.nombre if producto.marca_ref else '-' }}</td>
+                        <td>{{ producto.categoria_ref.nombre if producto.categoria_ref else '-' }}</td>
+                        <td>
+                            <span class="badge {% if producto.stock_actual <= producto.stock_minimo %}bg-danger{% elif producto.stock_actual <= producto.stock_minimo * 1.5 %}bg-warning{% else %}bg-success{% endif %}">
+                                {{ producto.stock_actual }}
+                            </span>
+                        </td>
+                        <td>{{ producto.stock_minimo }}</td>
+                        <td>{{ producto.stock_maximo }}</td>
+                        <td>
+                            {% if producto.stock_actual <= producto.stock_minimo %}
+                            <span class="badge bg-danger">CRÍTICO</span>
+                            {% elif producto.stock_actual <= producto.stock_minimo * 1.5 %}
+                            <span class="badge bg-warning">BAJO</span>
+                            {% elif producto.stock_actual >= producto.stock_maximo %}
+                            <span class="badge bg-info">EXCESO</span>
+                            {% else %}
+                            <span class="badge bg-success">NORMAL</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ format_currency(producto.precio_venta) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Ajuste de Stock -->
+<div class="modal fade" id="modalAjusteStock" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-edit"></i> Ajustar Stock</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formAjusteStock">
+                    <div class="mb-3">
+                        <label class="form-label">Producto</label>
+                        <select class="form-select" id="producto_id" required>
+                            <option value="">Seleccionar producto...</option>
+                            {% for producto in productos %}
+                            <option value="{{ producto.id_producto }}">{{ producto.nombre }} (Stock: {{ producto.stock_actual }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Tipo de Ajuste</label>
+                        <select class="form-select" id="tipo_ajuste" required>
+                            <option value="INGRESO_AJUSTE">Ingreso</option>
+                            <option value="SALIDA_AJUSTE">Salida</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Cantidad</label>
+                        <input type="number" class="form-control" id="cantidad" min="1" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Observación</label>
+                        <textarea class="form-control" id="observacion" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="guardarAjusteStock()">
+                    <i class="fas fa-save"></i> Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    $('#stockTable').DataTable({
+        language: {
+            url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+        },
+        order: [[4, 'asc']] // Ordenar por stock
+    });
+});
+
+function marcarLeida(id) {
+    $.post(`/inventario/alertas/${id}/marcar_leida`, function() {
+        location.reload();
+    });
+}
+
+function atenderAlerta(id) {
+    $.post(`/inventario/alertas/${id}/atender`, function() {
+        location.reload();
+    });
+}
+
+function guardarAjusteStock() {
+    const data = {
+        id_producto: $('#producto_id').val(),
+        tipo: $('#tipo_ajuste').val(),
+        cantidad: parseInt($('#cantidad').val()),
+        observacion: $('#observacion').val()
+    };
+    
+    if (!data.id_producto || !data.cantidad) {
+        Swal.fire('Error', 'Complete todos los campos', 'error');
+        return;
+    }
+    
+    $.ajax({
+        url: '/inventario/api/ajustes',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function(response) {
+            Swal.fire('Éxito', 'Ajuste de stock realizado', 'success');
+            $('#modalAjusteStock').modal('hide');
+            location.reload();
+        },
+        error: function() {
+            Swal.fire('Error', 'Error al realizar el ajuste', 'error');
+        }
+    });
+}
+</script>
+{% endblock %}

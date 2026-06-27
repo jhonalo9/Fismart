@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+
+{% block title %}Nueva Compra{% endblock %}
+
+{% block content %}
+<h2><i class="fas fa-truck"></i> Nueva Compra</h2>
+
+<div class="row mt-3">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5>Datos de la Compra</h5>
+            </div>
+            <div class="card-body">
+                <form id="formCompra">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Proveedor</label>
+                            <select class="form-select" id="id_proveedor" required>
+                                <option value="">Seleccionar proveedor...</option>
+                                {% for proveedor in proveedores %}
+                                <option value="{{ proveedor.id_proveedor }}">{{ proveedor.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Fecha de Compra</label>
+                            <input type="date" class="form-control" id="fecha_compra" required>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">N° Factura</label>
+                            <input type="text" class="form-control" id="numero_factura" placeholder="Factura-001">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Observación</label>
+                            <input type="text" class="form-control" id="observacion" placeholder="Observaciones de la compra">
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5>Agregar Productos</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-5">
+                        <select class="form-select" id="producto_seleccionado">
+                            <option value="">Seleccionar producto...</option>
+                            {% for producto in productos %}
+                            <option value="{{ producto.id_producto }}" 
+                                    data-precio="{{ producto.precio_compra }}"
+                                    data-stock="{{ producto.stock_actual }}">
+                                {{ producto.nombre }} (Stock: {{ producto.stock_actual }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <input type="number" class="form-control" id="cantidad_producto" placeholder="Cantidad" min="1" value="1">
+                    </div>
+                    <div class="col-md-2">
+                        <input type="number" class="form-control" id="precio_producto" placeholder="Precio" step="0.01" min="0">
+                    </div>
+                    <div class="col-md-2">
+                        <input type="date" class="form-control" id="fecha_vencimiento" placeholder="Vencimiento">
+                    </div>
+                    <div class="col-md-1">
+                        <button class="btn btn-success w-100" onclick="agregarProducto()">
+                            <i class="fas fa-plus"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <table class="table table-sm" id="tablaProductos">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Cantidad</th>
+                                <th>Precio Unit.</th>
+                                <th>Subtotal</th>
+                                <th>Vencimiento</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="listaProductos">
+                            <!-- Productos agregados dinámicamente -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5>Resumen de Compra</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Subtotal</label>
+                    <h4 class="text-primary" id="subtotal">S/. 0.00</h4>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">IGV (18%)</label>
+                    <h4 class="text-warning" id="igv">S/. 0.00</h4>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Total</label>
+                    <h3 class="text-success" id="total">S/. 0.00</h3>
+                </div>
+                <hr>
+                <button class="btn btn-success w-100" onclick="registrarCompra()">
+                    <i class="fas fa-save"></i> Registrar Compra
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let productosCompra = [];
+
+$(document).ready(function() {
+    // Cargar fecha actual
+    const hoy = new Date().toISOString().split('T')[0];
+    $('#fecha_compra').val(hoy);
+    
+    // Auto-completar precio al seleccionar producto
+    $('#producto_seleccionado').change(function() {
+        const precio = $(this).find(':selected').data('precio');
+        if (precio) {
+            $('#precio_producto').val(precio);
+        }
+    });
+});
+
+function agregarProducto() {
+    const id = $('#producto_seleccionado').val();
+    const nombre = $('#producto_seleccionado option:selected').text().split(' (')[0];
+    const cantidad = parseInt($('#cantidad_producto').val());
+    const precio = parseFloat($('#precio_producto').val());
+    const vencimiento = $('#fecha_vencimiento').val();
+    
+    if (!id || !cantidad || !precio) {
+        Swal.fire('Error', 'Complete todos los campos del producto', 'error');
+        return;
+    }
+    
+    // Verificar si ya existe
+    const existente = productosCompra.find(p => p.id_producto === parseInt(id));
+    if (existente) {
+        Swal.fire('Error', 'El producto ya está en la lista', 'warning');
+        return;
+    }
+    
+    productosCompra.push({
+        id_producto: parseInt(id),
+        nombre: nombre,
+        cantidad: cantidad,
+        precio_unitario: precio,
+        subtotal: cantidad * precio,
+        fecha_vencimiento: vencimiento || null
+    });
+    
+    actualizarTabla();
+    actualizarResumen();
+    
+    // Limpiar campos
+    $('#producto_seleccionado').val('');
+    $('#cantidad_producto').val(1);
+    $('#precio_producto').val('');
+    $('#fecha_vencimiento').val('');
+}
+
+function eliminarProducto(index) {
+    productosCompra.splice(index, 1);
+    actualizarTabla();
+    actualizarResumen();
+}
+
+function actualizarTabla() {
+    const tbody = $('#listaProductos');
+    tbody.empty();
+    
+    productosCompra.forEach((p, index) => {
+        tbody.append(`
+            <tr>
+                <td>${p.nombre}</td>
+                <td>${p.cantidad}</td>
+                <td>S/. ${p.precio_unitario.toFixed(2)}</td>
+                <td>S/. ${p.subtotal.toFixed(2)}</td>
+                <td>${p.fecha_vencimiento || '-'}</td>
+                <td>
+                    <button class="btn btn-sm btn-danger" onclick="eliminarProducto(${index})">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </td>
+            </tr>
+        `);
+    });
+}
+
+function actualizarResumen() {
+    let subtotal = 0;
+    productosCompra.forEach(p => subtotal += p.subtotal);
+    
+    const igv = subtotal * 0.18;
+    const total = subtotal + igv;
+    
+    $('#subtotal').text('S/. ' + subtotal.toFixed(2));
+    $('#igv').text('S/. ' + igv.toFixed(2));
+    $('#total').text('S/. ' + total.toFixed(2));
+}
+
+function registrarCompra() {
+    if (productosCompra.length === 0) {
+        Swal.fire('Error', 'Agregue al menos un producto', 'error');
+        return;
+    }
+    
+    const data = {
+        id_proveedor: $('#id_proveedor').val(),
+        fecha_compra: $('#fecha_compra').val(),
+        numero_factura: $('#numero_factura').val(),
+        observacion: $('#observacion').val(),
+        productos: productosCompra
+    };
+    
+    if (!data.id_proveedor || !data.fecha_compra) {
+        Swal.fire('Error', 'Complete los datos del proveedor y fecha', 'error');
+        return;
+    }
+    
+    $.ajax({
+        url: '/compras/api/compras',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function(response) {
+            Swal.fire({
+                icon: 'success',
+                title: '¡Compra registrada!',
+                html: `
+                    <p>Compra N°: <strong>${response.numero_factura || 'N/A'}</strong></p>
+                    <p>Total: <strong>S/. ${response.total.toFixed(2)}</strong></p>
+                `
+            }).then(() => {
+                window.location.href = '/compras';
+            });
+        },
+        error: function(xhr) {
+            Swal.fire('Error', xhr.responseJSON?.error || 'Error al registrar la compra', 'error');
+        }
+    });
+}
+</script>
+{% endblock %}

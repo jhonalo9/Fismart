@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}Lista de Compras{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="fas fa-file-invoice"></i> Compras</h2>
+    <a href="{{ url_for('compras.nueva') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Nueva Compra
+    </a>
+</div>
+
+<!-- Filtros -->
+<div class="card mb-3">
+    <div class="card-body">
+        <form class="row g-3" id="filtrosCompras">
+            <div class="col-md-3">
+                <label class="form-label">Desde</label>
+                <input type="date" class="form-control" id="fecha_desde">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Hasta</label>
+                <input type="date" class="form-control" id="fecha_hasta">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Proveedor</label>
+                <select class="form-select" id="proveedor">
+                    <option value="">Todos</option>
+                    {% for proveedor in proveedores %}
+                    <option value="{{ proveedor.id_proveedor }}">{{ proveedor.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Estado</label>
+                <select class="form-select" id="estado">
+                    <option value="">Todos</option>
+                    <option value="PENDIENTE">Pendiente</option>
+                    <option value="RECIBIDO">Recibido</option>
+                    <option value="CANCELADO">Cancelado</option>
+                </select>
+            </div>
+            <div class="col-md-1 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tabla de compras -->
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table id="comprasTable" class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>N° Factura</th>
+                        <th>Fecha</th>
+                        <th>Proveedor</th>
+                        <th>Usuario</th>
+                        <th>Subtotal</th>
+                        <th>IGV</th>
+                        <th>Total</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for compra in compras %}
+                    <tr>
+                        <td><strong>{{ compra.numero_factura or 'Sin factura' }}</strong></td>
+                        <td>{{ compra.fecha_compra.strftime('%d/%m/%Y') if compra.fecha_compra else '-' }}</td>
+                        <td>{{ compra.proveedor.nombre if compra.proveedor else '-' }}</td>
+                        <td>{{ compra.usuario.nombre if compra.usuario else '-' }}</td>
+                        <td>{{ format_currency(compra.subtotal) }}</td>
+                        <td>{{ format_currency(compra.igv) }}</td>
+                        <td><strong>{{ format_currency(compra.total) }}</strong></td>
+                        <td>
+                            <span class="badge {% if compra.estado == 'RECIBIDO' %}bg-success{% elif compra.estado == 'PENDIENTE' %}bg-warning{% else %}bg-danger{% endif %}">
+                                {{ compra.estado }}
+                            </span>
+                        </td>
+                        <td>
+                            <a href="{{ url_for('compras.ver', id=compra.id_compra) }}" class="btn btn-sm btn-info">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            {% if compra.estado == 'PENDIENTE' %}
+                            <button class="btn btn-sm btn-success" onclick="marcarRecibido({{ compra.id_compra }})">
+                                <i class="fas fa-check"></i>
+                            </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    $('#comprasTable').DataTable({
+        language: {
+            url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+        },
+        order: [[1, 'desc']]
+    });
+    
+    // Filtros
+    $('#filtrosCompras').submit(function(e) {
+        e.preventDefault();
+        // Aquí puedes implementar filtros avanzados si lo deseas
+        // Por ahora solo recarga la página
+        location.reload();
+    });
+});
+
+function marcarRecibido(id) {
+    Swal.fire({
+        title: '¿Confirmar recepción?',
+        text: 'Esto actualizará el stock de los productos',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, recibir',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            $.post(`/compras/${id}/recibir`, function() {
+                Swal.fire('Éxito', 'Compra recibida correctamente', 'success');
+                location.reload();
+            }).fail(function() {
+                Swal.fire('Error', 'No se pudo procesar la recepción', 'error');
+            });
+        }
+    });
+}
+</script>
+{% endblock %}

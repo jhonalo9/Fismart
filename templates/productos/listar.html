@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Productos{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="fas fa-capsules"></i> Productos</h2>
+    <a href="{{ url_for('productos.crear') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Nuevo Producto
+    </a>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <table id="productosTable" class="table table-striped">
+            <thead>
+                <tr><th>Imagen</th>
+                    <th>Código</th>
+                    <th>Nombre</th>
+                    <th>Marca</th>
+                    <th>Categoría</th>
+                    <th>Stock</th>
+                    <th>Precio Venta</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for producto in productos %}
+                <tr>
+                    <td>
+                        {% if producto.imagen_url %}
+                        <img src="{{ producto.imagen_url }}" alt="{{ producto.nombre }}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 5px;">
+                        {% else %}
+                        <div style="width: 50px; height: 50px; background: #f0f0f0; border-radius: 5px; display: flex; align-items: center; justify-content: center;">
+                            <i class="fas fa-image text-muted"></i>
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td>{{ producto.codigo_barras or '-' }}</td>
+                    <td>{{ producto.nombre }}</td>
+                    <td>{{ producto.marca_ref.nombre if producto.marca_ref else '-' }}</td>
+                    <td>{{ producto.categoria_ref.nombre if producto.categoria_ref else '-' }}</td>
+                    <td>
+                        <span class="badge {% if producto.stock_actual <= producto.stock_minimo %}bg-danger{% elif producto.stock_actual <= producto.stock_minimo * 1.5 %}bg-warning{% else %}bg-success{% endif %}">
+                            {{ producto.stock_actual }}
+                        </span>
+                    </td>
+                    <td>{{ format_currency(producto.precio_venta) }}</td>
+                    <td>
+                        <a href="{{ url_for('productos.editar', id=producto.id_producto) }}" class="btn btn-sm btn-info">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <button class="btn btn-sm btn-danger" onclick="eliminarProducto({{ producto.id_producto }})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    $('#productosTable').DataTable({
+        language: {
+            url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+        }
+    });
+});
+
+function eliminarProducto(id) {
+    Swal.fire({
+        title: '¿Estás seguro?',
+        text: "Esta acción desactivará el producto",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Sí, desactivar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            $.post(`/productos/${id}/eliminar`, function() {
+                location.reload();
+            });
+        }
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block title %}Lista de Ventas{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="fas fa-shopping-cart"></i> Ventas</h2>
+    <a href="{{ url_for('ventas.nueva') }}" class="btn btn-primary">
+        <i class="fas fa-plus"></i> Nueva Venta
+    </a>
+</div>
+
+<!-- Filtros -->
+<div class="card mb-3">
+    <div class="card-body">
+        <form class="row g-3" id="filtrosVentas">
+            <div class="col-md-3">
+                <label class="form-label">Desde</label>
+                <input type="date" class="form-control" id="fecha_desde">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Hasta</label>
+                <input type="date" class="form-control" id="fecha_hasta">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Estado</label>
+                <select class="form-select" id="estado">
+                    <option value="">Todos</option>
+                    <option value="COMPLETADA">Completada</option>
+                    <option value="CANCELADA">Cancelada</option>
+                    <option value="PENDIENTE">Pendiente</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Método Pago</label>
+                <select class="form-select" id="metodo_pago">
+                    <option value="">Todos</option>
+                    <option value="EFECTIVO">Efectivo</option>
+                    <option value="TARJETA">Tarjeta</option>
+                    <option value="TRANSFERENCIA">Transferencia</option>
+                    <option value="CREDITO">Crédito</option>
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-search"></i> Filtrar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Resumen de ventas -->
+<div class="row mb-3">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <h6>Total Ventas</h6>
+                <h3 id="totalVentas">0</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <h6>Monto Total</h6>
+                <h3 id="montoTotal">S/. 0.00</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <h6>Ventas Hoy</h6>
+                <h3 id="ventasHoy">0</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-danger text-white">
+            <div class="card-body">
+                <h6>Canceladas</h6>
+                <h3 id="ventasCanceladas">0</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de ventas -->
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table id="ventasTable" class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>N° Venta</th>
+                        <th>Fecha</th>
+                        <th>Cliente</th>
+                        <th>Método Pago</th>
+                        <th>Subtotal</th>
+                        <th>IGV</th>
+                        <th>Total</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for venta in ventas %}
+                    <tr>
+                        <td><strong>{{ venta.numero_venta }}</strong></td>
+                        <td>{{ format_date(venta.fecha_venta) }}</td>
+                        <td>{{ venta.usuario.nombre if venta.usuario else 'Anónimo' }}</td>
+                        <td>
+                            <span class="badge bg-info">{{ venta.metodo_pago }}</span>
+                        </td>
+                        <td>{{ format_currency(venta.subtotal) }}</td>
+                        <td>{{ format_currency(venta.igv) }}</td>
+                        <td><strong>{{ format_currency(venta.total) }}</strong></td>
+                        <td>
+                            <span class="badge {% if venta.estado == 'COMPLETADA' %}bg-success{% elif venta.estado == 'CANCELADA' %}bg-danger{% else %}bg-warning{% endif %}">
+                                {{ venta.estado }}
+                            </span>
+                        </td>
+                        <td>
+                            <a href="{{ url_for('ventas.ver', id=venta.id_venta) }}" class="btn btn-sm btn-info">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            {% if venta.estado != 'CANCELADA' %}
+                            <button class="btn btn-sm btn-danger" onclick="anularVenta({{ venta.id_venta }})">
+                                <i class="fas fa-ban"></i>
+                            </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    const table = $('#ventasTable').DataTable({
+        language: {
+            url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+        },
+        order: [[1, 'desc']],
+        drawCallback: function() {
+            actualizarResumen();
+        }
+    });
+    
+    // Filtros
+    $('#filtrosVentas').submit(function(e) {
+        e.preventDefault();
+        table.draw();
+    });
+    
+    // Cargar resumen inicial
+    actualizarResumen();
+});
+
+function actualizarResumen() {
+    $.getJSON('/ventas/api/ventas/dia', function(data) {
+        $('#ventasHoy').text(data.total_ventas || 0);
+    });
+    
+    // Calcular totales de la tabla
+    let totalVentas = 0;
+    let montoTotal = 0;
+    let canceladas = 0;
+    
+    $('#ventasTable tbody tr').each(function() {
+        const estado = $(this).find('td:eq(7)').text().trim();
+        const monto = parseFloat($(this).find('td:eq(6)').text().replace('S/.', '').replace(/,/g, '').trim());
+        
+        totalVentas++;
+        if (!isNaN(monto)) montoTotal += monto;
+        if (estado === 'CANCELADA') canceladas++;
+    });
+    
+    $('#totalVentas').text(totalVentas);
+    $('#montoTotal').text('S/. ' + montoTotal.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ','));
+    $('#ventasCanceladas').text(canceladas);
+}
+
+function anularVenta(id) {
+    Swal.fire({
+        title: '¿Anular esta venta?',
+        text: 'Esta acción revertirá el stock y no se puede deshacer',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Sí, anular',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            $.post(`/ventas/${id}/anular`, function() {
+                Swal.fire('Anulada', 'La venta ha sido anulada', 'success');
+                location.reload();
+            }).fail(function() {
+                Swal.fire('Error', 'No se pudo anular la venta', 'error');
+            });
+        }
+    });
+}
+</script>
+{% endblock %}

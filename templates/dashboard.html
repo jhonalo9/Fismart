@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-3">
+        <div class="card text-white bg-primary mb-3">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-capsules"></i> Productos
+                </h5>
+                <h2 class="card-text">{{ total_productos }}</h2>
+                <small>Activos</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-warning mb-3">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-exclamation-triangle"></i> Stock Bajo
+                </h5>
+                <h2 class="card-text">{{ productos_bajo_stock }}</h2>
+                <small>Productos críticos</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-success mb-3">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-shopping-cart"></i> Ventas Hoy
+                </h5>
+                <h2 class="card-text">{{ ventas_hoy }}</h2>
+                <small>Transacciones</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-white bg-danger mb-3">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-bell"></i> Alertas
+                </h5>
+                <h2 class="card-text">{{ alertas_pendientes }}</h2>
+                <small>Pendientes</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-robot"></i> Productos con Stock Crítico</h5>
+            </div>
+            <div class="card-body">
+                {% if productos_criticos %}
+                <div class="list-group">
+                    {% for producto in productos_criticos %}
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>{{ producto.nombre }}</strong>
+                            <small class="text-muted d-block">{{ producto.marca_ref.nombre if producto.marca_ref else '' }}</small>
+                        </div>
+                        <span class="badge bg-danger rounded-pill">{{ producto.stock_actual }} unidades</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted">No hay productos con stock crítico</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-clock"></i> Últimas Ventas</h5>
+            </div>
+            <div class="card-body">
+                {% if ultimas_ventas %}
+                <div class="list-group">
+                    {% for venta in ultimas_ventas %}
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>#{{ venta.numero_venta }}</strong>
+                            <small class="text-muted d-block">{{ format_date(venta.fecha_venta) }}</small>
+                        </div>
+                        <span class="badge bg-success rounded-pill">{{ format_currency(venta.total) }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted">No hay ventas registradas</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Gráfico de Ventas del Mes -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-chart-line"></i> Ventas del Mes</h5>
+            </div>
+            <div class="card-body">
+                <canvas id="ventasChart" height="100"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Cargar datos para el gráfico
+    $.getJSON('/ventas/api/ventas/dia', function(data) {
+        // Procesar datos para el gráfico
+        const ctx = document.getElementById('ventasChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'],
+                datasets: [{
+                    label: 'Ventas del Mes',
+                    data: [1200, 1500, 1800, 2000, 2500, 2100, 1300],
+                    borderColor: 'rgba(102, 126, 234, 1)',
+                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return 'S/.' + value;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

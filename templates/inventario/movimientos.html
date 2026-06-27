@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block title %}Movimientos de Inventario{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="fas fa-history"></i> Movimientos de Inventario</h2>
+    <div>
+        <button class="btn btn-outline-primary" onclick="exportarMovimientos()">
+            <i class="fas fa-file-excel"></i> Exportar
+        </button>
+        <button class="btn btn-outline-secondary" onclick="window.location.reload()">
+            <i class="fas fa-sync"></i> Actualizar
+        </button>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="card mb-3">
+    <div class="card-body">
+        <form id="formFiltros" class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Producto</label>
+                <select class="form-select" id="filtro_producto">
+                    <option value="">Todos</option>
+                    {% for producto in productos %}
+                    <option value="{{ producto.id_producto }}">{{ producto.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Tipo</label>
+                <select class="form-select" id="filtro_tipo">
+                    <option value="">Todos</option>
+                    <option value="INGRESO_COMPRA">Ingreso Compra</option>
+                    <option value="INGRESO_IA">Ingreso IA</option>
+                    <option value="SALIDA_VENTA">Salida Venta</option>
+                    <option value="SALIDA_AJUSTE">Salida Ajuste</option>
+                    <option value="INGRESO_AJUSTE">Ingreso Ajuste</option>
+                    <option value="SALIDA_VENCIMIENTO">Salida Vencimiento</option>
+                    <option value="INGRESO_DEVOLUCION">Ingreso Devolución</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Desde</label>
+                <input type="date" class="form-control" id="filtro_desde">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Hasta</label>
+                <input type="date" class="form-control" id="filtro_hasta">
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary me-2">
+                    <i class="fas fa-search"></i> Filtrar
+                </button>
+                <button type="reset" class="btn btn-secondary">
+                    <i class="fas fa-times"></i> Limpiar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Tabla de movimientos -->
+<div class="card">
+    <div class="card-header">
+        <h5><i class="fas fa-list"></i> Registro de Movimientos</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table id="movimientosTable" class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Producto</th>
+                        <th>Tipo</th>
+                        <th>Cantidad</th>
+                        <th>Stock Anterior</th>
+                        <th>Stock Nuevo</th>
+                        <th>Referencia</th>
+                        <th>Usuario</th>
+                        <th>Observación</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for movimiento in movimientos %}
+                    <tr>
+                        <td>{{ format_date(movimiento.fecha) }}</td>
+                        <td>{{ movimiento.producto.nombre if movimiento.producto else '-' }}</td>
+                        <td>
+                            <span class="badge {% if movimiento.tipo.signo == 1 %}bg-success{% else %}bg-danger{% endif %}">
+                                {{ movimiento.tipo.nombre if movimiento.tipo else '-' }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="{% if movimiento.tipo.signo == 1 %}text-success{% else %}text-danger{% endif %}">
+                                {{ movimiento.cantidad }}
+                            </span>
+                        </td>
+                        <td>{{ movimiento.stock_anterior }}</td>
+                        <td>{{ movimiento.stock_nuevo }}</td>
+                        <td>{{ movimiento.referencia or '-' }}</td>
+                        <td>{{ movimiento.usuario.nombre if movimiento.usuario else '-' }}</td>
+                        <td><small>{{ movimiento.observacion or '-' }}</small></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    const table = $('#movimientosTable').DataTable({
+        language: {
+            url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+        },
+        order: [[0, 'desc']],
+        pageLength: 50
+    });
+    
+    // Filtros
+    $('#formFiltros').submit(function(e) {
+        e.preventDefault();
+        // Aquí se pueden aplicar filtros adicionales
+        // Por ahora solo recargamos la página con parámetros
+        const params = new URLSearchParams();
+        const producto = $('#filtro_producto').val();
+        const tipo = $('#filtro_tipo').val();
+        const desde = $('#filtro_desde').val();
+        const hasta = $('#filtro_hasta').val();
+        
+        if (producto) params.append('producto_id', producto);
+        if (tipo) params.append('tipo', tipo);
+        if (desde) params.append('desde', desde);
+        if (hasta) params.append('hasta', hasta);
+        
+        window.location.href = '/inventario/movimientos?' + params.toString();
+    });
+});
+
+function exportarMovimientos() {
+    Swal.fire({
+        title: 'Exportar Movimientos',
+        text: '¿Deseas exportar todos los movimientos a Excel?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, exportar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            window.location.href = '/inventario/api/movimientos/exportar';
+        }
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Inicio{% endblock %}
+
+{% block content %}
+<div class="text-center py-5">
+    <h1 class="display-4">Bienvenido a Botica IA</h1>
+    <p class="lead">Sistema de Gestión de Inventario con Inteligencia Artificial</p>
+    <hr class="my-4">
+    <p>Selecciona una opción en el menú para comenzar</p>
+    
+    <div class="row mt-5">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="fas fa-capsules" style="font-size: 48px; color: #667eea;"></i>
+                    <h5 class="card-title mt-2">Productos</h5>
+                    <a href="{{ url_for('productos.listar') }}" class="btn btn-primary btn-sm">Gestionar</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="fas fa-shopping-cart" style="font-size: 48px; color: #28a745;"></i>
+                    <h5 class="card-title mt-2">Ventas</h5>
+                    <a href="{{ url_for('ventas.nueva') }}" class="btn btn-success btn-sm">Nueva Venta</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="fas fa-truck" style="font-size: 48px; color: #ffc107;"></i>
+                    <h5 class="card-title mt-2">Compras</h5>
+                    <a href="{{ url_for('compras.nueva') }}" class="btn btn-warning btn-sm">Nueva Compra</a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <i class="fas fa-robot" style="font-size: 48px; color: #dc3545;"></i>
+                    <h5 class="card-title mt-2">IA</h5>
+                    <a href="{{ url_for('ia.deteccion') }}" class="btn btn-danger btn-sm">Detección IA</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

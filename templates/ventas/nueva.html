@@ -1,0 +1,247 @@
+{% extends "base.html" %}
+
+{% block title %}Nueva Venta{% endblock %}
+
+{% block content %}
+<h2><i class="fas fa-shopping-cart"></i> Nueva Venta</h2>
+
+<div class="row mt-3">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5>Productos</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <input type="text" id="buscarProducto" class="form-control" placeholder="Buscar producto...">
+                    </div>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Stock</th>
+                                <th>Precio</th>
+                                <th>Cantidad</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productosDisponibles">
+                            {% for producto in productos %}
+                            <tr data-id="{{ producto.id_producto }}">
+                                <td>{{ producto.nombre }}</td>
+                                <td>{{ producto.stock_actual }}</td>
+                                <td>{{ format_currency(producto.precio_venta) }}</td>
+                                <td>
+                                    <input type="number" class="form-control form-control-sm cantidad" 
+                                           value="1" min="1" max="{{ producto.stock_actual }}">
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-success agregar-producto">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5>Carrito de Compra</h5>
+            </div>
+            <div class="card-body">
+                <div id="carrito">
+                    <p class="text-muted text-center">No hay productos en el carrito</p>
+                </div>
+                
+                <hr>
+                
+                <div class="row">
+                    <div class="col-6">
+                        <strong>Subtotal:</strong>
+                    </div>
+                    <div class="col-6 text-end" id="subtotal">
+                        S/. 0.00
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-6">
+                        <strong>IGV (18%):</strong>
+                    </div>
+                    <div class="col-6 text-end" id="igv">
+                        S/. 0.00
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-6">
+                        <strong>Total:</strong>
+                    </div>
+                    <div class="col-6 text-end" id="total">
+                        S/. 0.00
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="mb-3">
+                    <label>Método de Pago</label>
+                    <select id="metodoPago" class="form-select">
+                        <option value="EFECTIVO">Efectivo</option>
+                        <option value="TARJETA">Tarjeta</option>
+                        <option value="TRANSFERENCIA">Transferencia</option>
+                        <option value="CREDITO">Crédito</option>
+                    </select>
+                </div>
+                
+                <button class="btn btn-success w-100" id="finalizarVenta">
+                    <i class="fas fa-check"></i> Finalizar Venta
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let carrito = [];
+
+$(document).ready(function() {
+    // Agregar producto al carrito
+    $('.agregar-producto').click(function() {
+        const row = $(this).closest('tr');
+        const id = row.data('id');
+        const nombre = row.find('td:first').text();
+        const precio = parseFloat(row.find('td:eq(2)').text().replace('S/.', '').trim());
+        const stock = parseInt(row.find('td:eq(1)').text());
+        const cantidad = parseInt(row.find('.cantidad').val());
+        
+        if (cantidad > stock) {
+            Swal.fire('Error', 'Stock insuficiente', 'error');
+            return;
+        }
+        
+        // Verificar si ya existe en el carrito
+        const existente = carrito.find(item => item.id === id);
+        if (existente) {
+            if (existente.cantidad + cantidad > stock) {
+                Swal.fire('Error', 'Stock insuficiente', 'error');
+                return;
+            }
+            existente.cantidad += cantidad;
+        } else {
+            carrito.push({ id, nombre, precio, cantidad });
+        }
+        
+        actualizarCarrito();
+    });
+});
+
+function actualizarCarrito() {
+    const container = $('#carrito');
+    
+    if (carrito.length === 0) {
+        container.html('<p class="text-muted text-center">No hay productos en el carrito</p>');
+        $('#subtotal').text('S/. 0.00');
+        $('#igv').text('S/. 0.00');
+        $('#total').text('S/. 0.00');
+        return;
+    }
+    
+    let html = '<div class="list-group">';
+    let subtotal = 0;
+    
+    carrito.forEach((item, index) => {
+        const totalItem = item.precio * item.cantidad;
+        subtotal += totalItem;
+        
+        html += `
+            <div class="list-group-item d-flex justify-content-between align-items-center">
+                <div>
+                    <strong>${item.nombre}</strong>
+                    <br>
+                    <small>${item.cantidad} x ${formatCurrency(item.precio)}</small>
+                </div>
+                <div>
+                    <span class="badge bg-primary">${formatCurrency(totalItem)}</span>
+                    <button class="btn btn-sm btn-danger" onclick="eliminarDelCarrito(${index})">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    container.html(html);
+    
+    const igv = subtotal * 0.18;
+    const total = subtotal + igv;
+    
+    $('#subtotal').text(formatCurrency(subtotal));
+    $('#igv').text(formatCurrency(igv));
+    $('#total').text(formatCurrency(total));
+}
+
+function eliminarDelCarrito(index) {
+    carrito.splice(index, 1);
+    actualizarCarrito();
+}
+
+function formatCurrency(amount) {
+    return 'S/. ' + amount.toFixed(2);
+}
+
+// Finalizar venta
+$('#finalizarVenta').click(function() {
+    if (carrito.length === 0) {
+        Swal.fire('Error', 'El carrito está vacío', 'error');
+        return;
+    }
+    
+    const metodoPago = $('#metodoPago').val();
+    
+    const datos = {
+        productos: carrito.map(item => ({
+            id_producto: item.id,
+            cantidad: item.cantidad,
+            precio_unitario: item.precio
+        })),
+        metodo_pago: metodoPago
+    };
+    
+    $.ajax({
+        url: '/ventas/api/ventas',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(datos),
+        success: function(response) {
+            Swal.fire({
+                icon: 'success',
+                title: '¡Venta registrada!',
+                html: `
+                    <p>Venta N°: <strong>${response.numero_venta}</strong></p>
+                    <p>Total: <strong>${formatCurrency(response.total)}</strong></p>
+                `
+            }).then(() => {
+                carrito = [];
+                actualizarCarrito();
+            });
+        },
+        error: function(xhr) {
+            Swal.fire('Error', xhr.responseJSON?.error || 'Error al procesar la venta', 'error');
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,225 @@
+{% extends "base.html" %}
+
+{% block title %}Recomendaciones IA{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="fas fa-lightbulb"></i> Recomendaciones de Compra</h2>
+    <div>
+        <button class="btn btn-primary" onclick="generarRecomendaciones()">
+            <i class="fas fa-sync"></i> Generar Recomendaciones
+        </button>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <h6>Recomendaciones Pendientes</h6>
+                <h3 id="pendientes">0</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <h6>Recomendaciones Aprobadas</h6>
+                <h3 id="aprobadas">0</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-danger text-white">
+            <div class="card-body">
+                <h6>Recomendaciones Rechazadas</h6>
+                <h3 id="rechazadas">0</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table id="recomendacionesTable" class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Periodo</th>
+                        <th>Fecha Generación</th>
+                        <th>Estado</th>
+                        <th>Productos</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for rec in recomendaciones %}
+                    <tr>
+                        <td>{{ rec.mes }}/{{ rec.anio }}</td>
+                        <td>{{ format_date(rec.fecha_generacion) }}</td>
+                        <td>
+                            <span class="badge {% if rec.estado == 'APROBADA' %}bg-success{% elif rec.estado == 'RECHAZADA' %}bg-danger{% else %}bg-warning{% endif %}">
+                                {{ rec.estado }}
+                            </span>
+                        </td>
+                        <td>{{ rec.detalles|length }} productos</td>
+                        <td>
+                            <button class="btn btn-sm btn-info" onclick="verDetalle({{ rec.id_recomendacion }})">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            {% if rec.estado == 'PENDIENTE' and user.is_gerente() %}
+                            <button class="btn btn-sm btn-success" onclick="aprobarRecomendacion({{ rec.id_recomendacion }})">
+                                <i class="fas fa-check"></i>
+                            </button>
+                            <button class="btn btn-sm btn-danger" onclick="rechazarRecomendacion({{ rec.id_recomendacion }})">
+                                <i class="fas fa-times"></i>
+                            </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Detalle -->
+<div class="modal fade" id="modalDetalle" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalle de Recomendación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="detalleRecomendacion">
+                <!-- Cargado vía AJAX -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    $('#recomendacionesTable').DataTable({
+        language: {
+            url: '//cdn.datatables.net/plug-ins/1.13.4/i18n/es-ES.json'
+        },
+        order: [[1, 'desc']]
+    });
+    
+    actualizarResumen();
+});
+
+function actualizarResumen() {
+    $.getJSON('/ia/api/recomendaciones', function(data) {
+        let pendientes = 0, aprobadas = 0, rechazadas = 0;
+        data.forEach(r => {
+            if (r.estado === 'PENDIENTE') pendientes++;
+            else if (r.estado === 'APROBADA') aprobadas++;
+            else if (r.estado === 'RECHAZADA') rechazadas++;
+        });
+        $('#pendientes').text(pendientes);
+        $('#aprobadas').text(aprobadas);
+        $('#rechazadas').text(rechazadas);
+    });
+}
+
+function generarRecomendaciones() {
+    Swal.fire({
+        title: 'Generar Recomendaciones',
+        text: '¿Deseas generar recomendaciones para el mes actual?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, generar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            $.post('/ia/recomendaciones/generar', function() {
+                Swal.fire('Éxito', 'Recomendaciones generadas', 'success');
+                location.reload();
+            }).fail(function() {
+                Swal.fire('Error', 'No se pudieron generar las recomendaciones', 'error');
+            });
+        }
+    });
+}
+
+function verDetalle(id) {
+    $.getJSON(`/ia/api/recomendaciones/${id}`, function(data) {
+        let html = `
+            <h6>Productos recomendados (${data.detalles.length})</h6>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th>Stock Actual</th>
+                            <th>Cantidad Sugerida</th>
+                            <th>Ventas Promedio</th>
+                            <th>Prioridad</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        data.detalles.forEach(d => {
+            html += `
+                <tr>
+                    <td>${d.producto}</td>
+                    <td>${d.stock_actual}</td>
+                    <td><strong>${d.cantidad_sugerida}</strong></td>
+                    <td>${d.ventas_promedio || 0}</td>
+                    <td>
+                        <span class="badge ${d.prioridad === 1 ? 'bg-danger' : d.prioridad === 2 ? 'bg-warning' : 'bg-info'}">
+                            ${d.prioridad}
+                        </span>
+                    </td>
+                </tr>
+            `;
+        });
+        html += '</tbody></table></div>';
+        $('#detalleRecomendacion').html(html);
+        $('#modalDetalle').modal('show');
+    });
+}
+
+function aprobarRecomendacion(id) {
+    Swal.fire({
+        title: '¿Aprobar esta recomendación?',
+        text: 'Se generarán las órdenes de compra sugeridas',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, aprobar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            $.post(`/ia/recomendaciones/${id}/aprobar`, function() {
+                Swal.fire('Aprobada', 'Recomendación aprobada', 'success');
+                location.reload();
+            });
+        }
+    });
+}
+
+function rechazarRecomendacion(id) {
+    Swal.fire({
+        title: '¿Rechazar esta recomendación?',
+        text: 'Esta acción no se puede deshacer',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Sí, rechazar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            $.post(`/ia/recomendaciones/${id}/rechazar`, function() {
+                Swal.fire('Rechazada', 'Recomendación rechazada', 'info');
+                location.reload();
+            });
+        }
+    });
+}
+</script>
+{% endblock %}

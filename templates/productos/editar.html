@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}Editar Producto{% endblock %}
+
+{% block content %}
+<h2><i class="fas fa-edit"></i> Editar Producto</h2>
+
+<div class="card mt-3">
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('productos.editar', id=producto.id_producto) }}">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Código de Barras</label>
+                    <input type="text" class="form-control" name="codigo_barras" value="{{ producto.codigo_barras or '' }}">
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label">Nombre *</label>
+                    <input type="text" class="form-control" name="nombre" value="{{ producto.nombre }}" required>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-12 mb-3">
+                    <label class="form-label">Descripción</label>
+                    <textarea class="form-control" name="descripcion" rows="2">{{ producto.descripcion or '' }}</textarea>
+                </div>
+            </div>
+
+            <div class="row">
+            <div class="col-md-12 mb-3">
+                <label class="form-label">Imagen del Producto</label>
+                {% if producto.imagen_url %}
+                <div class="mb-2">
+                    <img src="{{ producto.imagen_url }}" alt="{{ producto.nombre }}" style="max-height: 150px; border-radius: 10px;">
+                </div>
+                {% endif %}
+                <input type="file" class="form-control" name="imagen" accept="image/*">
+                <small class="text-muted">Dejar vacío para mantener la imagen actual</small>
+            </div>
+        </div>
+            
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Marca</label>
+                    <select class="form-select" name="id_marca">
+                        <option value="">Seleccionar marca...</option>
+                        {% for marca in marcas %}
+                        <option value="{{ marca.id_marca }}" {% if producto.id_marca == marca.id_marca %}selected{% endif %}>
+                            {{ marca.nombre }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Categoría</label>
+                    <select class="form-select" name="id_categoria">
+                        <option value="">Seleccionar categoría...</option>
+                        {% for categoria in categorias %}
+                        <option value="{{ categoria.id_categoria }}" {% if producto.id_categoria == categoria.id_categoria %}selected{% endif %}>
+                            {{ categoria.nombre }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Laboratorio</label>
+                    <select class="form-select" name="id_laboratorio">
+                        <option value="">Seleccionar laboratorio...</option>
+                        {% for laboratorio in laboratorios %}
+                        <option value="{{ laboratorio.id_laboratorio }}" {% if producto.id_laboratorio == laboratorio.id_laboratorio %}selected{% endif %}>
+                            {{ laboratorio.nombre }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Presentación</label>
+                    <input type="text" class="form-control" name="presentacion" value="{{ producto.presentacion or '' }}">
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Concentración</label>
+                    <input type="text" class="form-control" name="concentracion" value="{{ producto.concentracion or '' }}">
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label">Fecha de Vencimiento</label>
+                    <input type="date" class="form-control" name="fecha_vencimiento" value="{{ producto.fecha_vencimiento.isoformat() if producto.fecha_vencimiento else '' }}">
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-3 mb-3">
+                    <label class="form-label">Precio de Compra *</label>
+                    <input type="number" class="form-control" name="precio_compra" step="0.01" value="{{ producto.precio_compra }}" required>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="form-label">Precio de Venta *</label>
+                    <input type="number" class="form-control" name="precio_venta" step="0.01" value="{{ producto.precio_venta }}" required>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="form-label">Stock Actual</label>
+                    <input type="number" class="form-control" name="stock_actual" value="{{ producto.stock_actual }}" readonly>
+                    <small class="text-muted">El stock se modifica con compras y ventas</small>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <label class="form-label">Stock Mínimo</label>
+                    <input type="number" class="form-control" name="stock_minimo" value="{{ producto.stock_minimo or 5 }}">
+                </div>
+            </div>
+            
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="requiere_receta" id="requiere_receta" {% if producto.requiere_receta %}checked{% endif %}>
+                        <label class="form-check-label" for="requiere_receta">
+                            Requiere Receta Médica
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="activo" id="activo" {% if producto.activo %}checked{% endif %}>
+                        <label class="form-check-label" for="activo">
+                            Activo
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="text-end">
+                <a href="{{ url_for('productos.listar') }}" class="btn btn-secondary">Cancelar</a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Actualizar Producto
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
