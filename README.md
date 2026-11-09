@@ -25,7 +25,7 @@ python run.py
 ```
 
 
-# Capturas del proyecto
+# Capturas del proyecto oficial
 
 
 <img width="722" height="406" alt="image" src="https://github.com/user-attachments/assets/7043d5fe-953d-44e7-a7d4-5c7fe6c97d00" />
